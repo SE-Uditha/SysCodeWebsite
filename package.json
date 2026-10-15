@@ -2,16 +2,30 @@
   "name": "syscode",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "admin:setup": "node scripts/setup-admin.mjs",
+    "database:setup": "node scripts/setup-mysql.mjs",
+    "database:check": "node scripts/setup-mysql.mjs --check",
+    "database:upgrade-staff": "node scripts/upgrade-staff.mjs"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "framer-motion": "^14.2.0",
+    "lucide-react": "^1.57.0",
+    "mysql2": "^3.24.6",
     "next": "16.4.0",
+    "nodemailer": "^10.1.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.90.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

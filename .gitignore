@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# private legacy JSON migration backups and isolated MySQL QA credentials/data
+/.data/
+/.admin-test-data/
