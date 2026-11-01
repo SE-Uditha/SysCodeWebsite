@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { getAdminSession } from '@/lib/admin/auth';
-import { countPendingChanges, getAdminContent, getContentRevisions, inquiryRevision, listChangeRequests, listInquiries, listStaff } from '@/lib/admin/store';
+import { countPendingChanges, getAdminContent, getAdminProfile, getContentRevisions, inquiryRevision, listChangeRequests, listInquiries, listStaff } from '@/lib/admin/store';
 
 export default function AdminPage() {
   return (
@@ -15,8 +15,8 @@ export default function AdminPage() {
 async function AuthenticatedDashboard() {
   const session = await getAdminSession();
   if (!session) redirect('/admin/login');
-  const [inquiries, content, approvals, staff, pendingCount] = await Promise.all([
-    listInquiries(), getAdminContent(), listChangeRequests(session), session.role === 'admin' ? listStaff(session) : Promise.resolve([]), countPendingChanges(session),
+  const [inquiries, content, approvals, staff, pendingCount, profile] = await Promise.all([
+    listInquiries(), getAdminContent(), listChangeRequests(session), session.role === 'admin' ? listStaff(session) : Promise.resolve([]), countPendingChanges(session), session.role === 'admin' ? getAdminProfile() : Promise.resolve(null),
   ]);
   return <AdminDashboard
     actor={{ id: session.id, role: session.role, email: session.email, name: session.name }}
@@ -27,5 +27,6 @@ async function AuthenticatedDashboard() {
     initialApprovals={approvals}
     initialStaff={staff}
     initialPendingCount={pendingCount}
+    initialProfile={profile}
   />;
 }

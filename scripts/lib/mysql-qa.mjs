@@ -177,7 +177,7 @@ export async function resetQaFixtures(connection, worker, environment, account) 
   await connection.beginTransaction();
   try {
     for (const table of ['change_requests', 'staff_accounts', 'admin_sessions', 'login_attempts', 'inquiries', 'packages', 'projects', 'faqs', 'admin_accounts']) await connection.query(`DELETE FROM ${table}`);
-    await connection.query("UPDATE app_metadata SET meta_value = '2' WHERE meta_key = 'schema_version'");
+    await connection.query("UPDATE app_metadata SET meta_value = '3' WHERE meta_key = 'schema_version'");
     await connection.query("UPDATE app_metadata SET meta_value = '1' WHERE meta_key = 'initialized'");
     if (account) await connection.execute('INSERT INTO admin_accounts (singleton_id,email,password_hash,updated_at) VALUES (1,?,?,?)', [account.email, account.passwordHash, Date.now()]);
     if (content) for (const table of ['packages', 'projects', 'faqs']) for (const [index, item] of content[table].entries()) {

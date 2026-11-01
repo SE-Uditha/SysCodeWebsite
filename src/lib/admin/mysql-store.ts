@@ -13,11 +13,19 @@ import {
 import {
   inquiryEmailStatuses, inquiryStatuses,
   type AdminContent, type AdminContentSection, type AdminInquiry,
-  type InquiryEmailStatus, type InquiryUpdate, type DashboardAccount, type DashboardActor, type DashboardRole,
+  type AdminProfile, type InquiryEmailStatus, type InquiryUpdate, type DashboardAccount, type DashboardActor, type DashboardRole,
 } from './types';
 
-const accountSchema = z.object({
+const credentialSchema = z.object({
   email: z.string().max(254).email().refine((value) => value === value.trim().toLowerCase()),
+  passwordHash: z.string().regex(/^scrypt:32768:8:[13]:[0-9a-f]{32}:[0-9a-f]{128}$/i),
+}).strict();
+const accountSchema = z.object({
+  username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9._-]+$/),
+  email: z.string().max(254).email().refine((value) => value === value.trim().toLowerCase()),
+  phone: z.string().max(40),
+  address: z.string().max(500),
+  postalCode: z.string().max(20),
   passwordHash: z.string().regex(/^scrypt:32768:8:[13]:[0-9a-f]{32}:[0-9a-f]{128}$/i),
 }).strict();
 type AdminAccount = z.infer<typeof accountSchema>;
@@ -40,24 +48,24 @@ export async function acquireGate(connection: PoolConnection, name: 'accounts' |
 
 export async function readAccount(connection: PoolConnection, forUpdate = false): Promise<AdminAccount | null> {
   const [rows] = await connection.execute<RowDataPacket[]>(
-    `SELECT email, password_hash FROM admin_accounts WHERE singleton_id = 1${forUpdate ? ' FOR UPDATE' : ''}`,
+    `SELECT username,email,phone,address,postal_code,password_hash FROM admin_accounts WHERE singleton_id = 1${forUpdate ? ' FOR UPDATE' : ''}`,
   );
   if (rows.length === 0) return null;
-  return accountSchema.parse({ email: rows[0].email, passwordHash: rows[0].password_hash });
+  return accountSchema.parse({ username: rows[0].username, email: rows[0].email, phone: rows[0].phone, address: rows[0].address, postalCode: rows[0].postal_code, passwordHash: rows[0].password_hash });
 }
 
 export async function readDashboardAccount(connection: PoolConnection, id: string, role: DashboardRole, forUpdate = false): Promise<DashboardAccount | null> {
   if (role === 'admin') {
     if (id !== 'admin') return null;
     const account = await readAccount(connection, forUpdate);
-    return account ? { ...account, id: 'admin', role: 'admin', name: 'Administrator', active: true } : null;
+    return account ? { ...account, id: 'admin', role: 'admin', name: account.username, active: true } : null;
   }
   if (role !== 'staff' || !z.string().uuid().safeParse(id).success) return null;
   const [rows] = await connection.execute<RowDataPacket[]>(
     `SELECT id,name,email,password_hash,active FROM staff_accounts WHERE id = ? AND deleted_at IS NULL${forUpdate ? ' FOR UPDATE' : ''}`, [id],
   );
   if (!rows.length) return null;
-  const credentials = accountSchema.parse({ email: rows[0].email, passwordHash: rows[0].password_hash });
+  const credentials = credentialSchema.parse({ email: rows[0].email, passwordHash: rows[0].password_hash });
   return { ...credentials, id: rows[0].id, role: 'staff', name: z.string().min(1).max(100).parse(rows[0].name), active: Boolean(rows[0].active) };
 }
 
@@ -70,13 +78,13 @@ export async function getDashboardAccount(id: string, role: DashboardRole): Prom
 }
 export const getDashboardAccountByIdentity = getDashboardAccount;
 
-export async function getDashboardAccountByEmail(email: string): Promise<DashboardAccount | null> {
-  if (!isMysqlConfigured() || !z.string().email().max(254).safeParse(email).success) return null;
-  const normalized = email.trim().toLowerCase();
+export async function getDashboardAccountByLogin(identifier: string): Promise<DashboardAccount | null> {
+  if (!isMysqlConfigured() || !z.string().min(1).max(254).safeParse(identifier).success) return null;
+  const normalized = identifier.trim().toLowerCase();
   return transaction(async (connection: PoolConnection) => {
     await assertInitialized(connection);
     const admin = await readDashboardAccount(connection, 'admin', 'admin');
-    if (admin?.email === normalized) return admin;
+    if (admin && (admin.email === normalized || admin.name.toLowerCase() === normalized)) return admin;
     const [staff] = await connection.execute<RowDataPacket[]>('SELECT id FROM staff_accounts WHERE email = ? AND active = 1 AND deleted_at IS NULL LIMIT 1', [normalized]);
     return staff.length ? readDashboardAccount(connection, staff[0].id, 'staff') : null;
   });
@@ -87,6 +95,33 @@ export async function getAdminAccount(): Promise<AdminAccount | null> {
   return transaction(async (connection: PoolConnection) => {
     await assertInitialized(connection);
     return readAccount(connection);
+  });
+}
+
+export async function getAdminProfile(): Promise<AdminProfile | null> {
+  const account = await getAdminAccount();
+  if (!account) return null;
+  const { username, email, phone, address, postalCode } = account;
+  return { username, email, phone, address, postalCode };
+}
+
+export async function updateAdminProfile(
+  actor: import('./types').ServerDashboardActor,
+  profile: Pick<AdminProfile, 'phone' | 'address' | 'postalCode'>,
+): Promise<AdminProfile> {
+  requirePrivateConfiguration();
+  const input = z.object({
+    phone: z.string().trim().max(40).refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'Use a phone number without control characters.'),
+    address: z.string().trim().max(500).refine((value) => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value), 'Use an address without control characters.'),
+    postalCode: z.string().trim().max(20).refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'Use a postal code without control characters.'),
+  }).strict().parse(profile);
+  return transaction(async (connection: PoolConnection) => {
+    await assertInitialized(connection);
+    await acquireGate(connection, 'accounts');
+    const account = await readAccount(connection, true);
+    if (!account || actor.id !== 'admin' || actor.role !== 'admin' || account.email !== actor.email) throw new Error('Only the administrator can update the administrator profile.');
+    await connection.execute('UPDATE admin_accounts SET phone=?,address=?,postal_code=?,updated_at=? WHERE singleton_id=1', [input.phone,input.address,input.postalCode,Date.now()]);
+    return { username: account.username, email: account.email, ...input };
   });
 }
 

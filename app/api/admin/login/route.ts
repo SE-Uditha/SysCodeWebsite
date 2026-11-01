@@ -11,26 +11,30 @@ import {
   revokeAdminSession,
   verifyAdminCredentials,
 } from '@/lib/admin/auth';
+import { getDashboardAccountByLogin } from '@/lib/admin/store';
 
 const credentialsSchema = z.object({
-  email: z.string().trim().min(1).max(254),
+  identifier: z.string().trim().min(1).max(254).optional(),
+  email: z.string().trim().min(1).max(254).optional(),
   password: z.string().min(1).max(1024),
-}).strict();
+}).strict().refine((value) => Boolean(value.identifier) !== Boolean(value.email), 'Enter your email or username.');
 
 export async function POST(request: Request) {
   if (!hasSameOrigin(request)) return noStoreJson({ error: 'Request origin is not allowed.' }, 403);
   try {
     if (!(await isAdminConfigured())) return noStoreJson({ error: 'Admin sign-in has not been configured yet.' }, 503);
     const payload = credentialsSchema.safeParse(await readAdminJson(request, 4096));
-    const retryAfter = await consumeLoginAttempt(payload.success ? payload.data.email : '');
+    const identifier = payload.success ? payload.data.identifier || payload.data.email || '' : '';
+    const account = payload.success ? await getDashboardAccountByLogin(identifier.toLowerCase()) : null;
+    const retryAfter = await consumeLoginAttempt(account?.email || identifier);
     if (retryAfter) {
       return noStoreJson({ error: 'Too many sign-in attempts. Please try again later.' }, 429, {
         'Retry-After': String(retryAfter),
       });
     }
-    const verified = payload.success ? await verifyAdminCredentials(payload.data.email, payload.data.password) : null;
+    const verified = payload.success ? await verifyAdminCredentials(identifier, payload.data.password) : null;
     if (!verified) {
-      return noStoreJson({ error: 'Email or password is incorrect.' }, 401);
+      return noStoreJson({ error: 'Username, email, or password is incorrect.' }, 401);
     }
     await revokeAdminSession(request);
     const token = await createAdminSession(verified);

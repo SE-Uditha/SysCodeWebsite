@@ -5,9 +5,11 @@ export { accountCredentialVersion } from './credential-version';
 export {
   isAdminStorageConfigured,
   getAdminAccount,
+  getAdminProfile,
+  updateAdminProfile,
   getDashboardAccount,
   getDashboardAccountByIdentity,
-  getDashboardAccountByEmail,
+  getDashboardAccountByLogin,
   listInquiries,
   createInquiry,
   updateInquiry,

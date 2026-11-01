@@ -33,6 +33,7 @@ export type AdminContentSection = keyof AdminContent;
 
 export type DashboardRole = 'admin' | 'staff';
 export type DashboardActor = { id: string; role: DashboardRole; email: string; name: string };
+export type AdminProfile = { username: string; email: string; phone: string; address: string; postalCode: string };
 /** Internal authentication proof. Never pass this object to Client Components. */
 export type ServerDashboardActor = DashboardActor & { credentialVersion: string };
 /** Password hashes are only returned to the server authentication layer. */

@@ -7,7 +7,7 @@ import {
   deleteAdminSession,
   getAdminAccount,
   getDashboardAccount,
-  getDashboardAccountByEmail,
+  getDashboardAccountByLogin,
   hasAdminSession,
   isAdminStorageConfigured,
   storeAdminSession,
@@ -48,10 +48,11 @@ function safeEqual(left: string, right: string) {
 
 const credentialWork = globalThis as typeof globalThis & { syscodeAdminVerifyingCredentials?: boolean };
 
-export async function verifyAdminCredentials(email: string, password: string): Promise<VerifiedAdminCredentials | null> {
+export async function verifyAdminCredentials(identifier: string, password: string): Promise<VerifiedAdminCredentials | null> {
   const config = await configuration();
   if (!config) return null;
-  const account = await getDashboardAccountByEmail(email.trim().toLowerCase());
+  const normalized = identifier.trim().toLowerCase();
+  const account = await getDashboardAccountByLogin(normalized);
   // Keep expensive password derivations bounded even when requests arrive together.
   if (credentialWork.syscodeAdminVerifyingCredentials) {
     throw new AdminRequestError('Sign-in is busy. Please try again shortly.', 429);
@@ -68,7 +69,10 @@ export async function verifyAdminCredentials(email: string, password: string): P
     });
     // Derive a key even for an incorrect email to keep credential failures uniform.
     const passwordMatches = timingSafeEqual(key, Buffer.from(expectedHash, 'hex'));
-    return account && account.active && safeEqual(email.trim().toLowerCase(), account.email) && passwordMatches
+    const identityMatches = account?.role === 'admin'
+      ? safeEqual(normalized, account.email) || safeEqual(normalized, account.name.toLowerCase())
+      : account?.role === 'staff' && safeEqual(normalized, account.email);
+    return account && account.active && identityMatches && passwordMatches
       ? { id: account.id, role: account.role, name: account.name, email: account.email, credentialVersion: accountCredentialVersion(account) }
       : null;
   } finally {
@@ -215,8 +219,9 @@ export function hasSameOrigin(request: Request) {
     if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') return false;
     if (!origin || !['http:', 'https:'].includes(target.protocol)) return false;
     const source = new URL(origin);
-    return source.origin === origin && source.origin === target.origin &&
-      (!host || host.toLowerCase() === target.host.toLowerCase());
+    // The framework may report request.url with a fixed hostname, so the browser-sent Host is authoritative.
+    const expectedHost = (host || target.host).toLowerCase();
+    return source.origin === origin && source.protocol === target.protocol && source.host.toLowerCase() === expectedHost;
   } catch {
     return false;
   }

@@ -96,6 +96,15 @@ try {
   const setCookie = signedIn.response.headers.get('set-cookie') || '';
   cookie = setCookie.split(';')[0];
   check('Correct login sets a private secure session cookie', signedIn.response.status === 200 && /HttpOnly/i.test(setCookie) && /SameSite=Strict/i.test(setCookie) && /Secure/i.test(setCookie) && /Path=\//i.test(setCookie));
+  const usernameLogin = await api('/api/admin/login', { method: 'POST', body: { identifier: 'administrator', password } });
+  check('Administrator can sign in with the username', usernameLogin.response.status === 200);
+  if (usernameLogin.response.ok) cookie = (usernameLogin.response.headers.get('set-cookie') || '').split(';')[0];
+  const profile = await api('/api/admin/profile');
+  check('Administrator profile is private and database-backed', profile.response.status === 200 && profile.data?.profile?.username === 'administrator' && profile.response.headers.get('cache-control')?.includes('no-store'));
+  check('Cross-origin profile updates are rejected', (await api('/api/admin/profile', { method: 'PATCH', origin: 'https://example.invalid', body: { phone: '+94770000000', address: 'QA private address', postalCode: '50080' } })).response.status === 403);
+  const profileUpdate = await api('/api/admin/profile', { method: 'PATCH', body: { phone: '+94770000000', address: 'QA private address', postalCode: '50080' } });
+  const profileReload = await api('/api/admin/profile');
+  check('Administrator can update private contact details', profileUpdate.response.status === 200 && profileReload.data?.profile?.phone === '+94770000000' && profileReload.data?.profile?.address === 'QA private address' && profileReload.data?.profile?.postalCode === '50080');
   check('Tampered session is rejected', (await api('/api/admin/inquiries', { token: `${cookie}x` })).response.status === 401);
   const validToken = cookie.slice(cookie.indexOf('=') + 1);
   const expiredPayload = JSON.parse(Buffer.from(validToken.split('.')[0], 'base64url').toString('utf8'));
@@ -273,7 +282,7 @@ try {
   for (const width of [320, 768, 1440, 3840, 7680]) {
     await viewport(width, width === 320 ? 844 : 900);
     await pause(60);
-    for (const view of ['overview', 'inquiries', 'packages', 'projects', 'faqs']) {
+    for (const view of ['overview', 'inquiries', 'packages', 'projects', 'faqs', 'profile']) {
       await click(`[data-admin-view="${view}"]`);
       await pause(80);
       check(`Admin ${view} has no horizontal overflow at ${width}px`, await evaluate('document.documentElement.scrollWidth<=innerWidth+1&&document.body.scrollWidth<=innerWidth+1'));

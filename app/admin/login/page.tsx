@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { AdminLoginForm } from '@/components/admin/AdminLoginForm';
-import { getAdminSession, isAdminConfigured } from '@/lib/admin/auth';
+import { getAdminSession } from '@/lib/admin/auth';
 
 export default function AdminLoginPage() {
   return (
@@ -13,14 +13,12 @@ export default function AdminLoginPage() {
 
 async function Login() {
   let session = null;
-  let configured = false;
   let unavailable = false;
   try {
     session = await getAdminSession();
-    if (!session) configured = await isAdminConfigured();
   } catch {
     unavailable = true;
   }
   if (session) redirect('/admin');
-  return <AdminLoginForm configured={configured} unavailable={unavailable} />;
+  return <AdminLoginForm unavailable={unavailable} />;
 }

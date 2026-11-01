@@ -7,7 +7,8 @@ import { mysqlConnectionOptions, upgradeSchema, assertInitialized } from '../src
 async function checkpoint(connection) {
   const snapshot = {};
   for (const table of ['admin_accounts', 'packages', 'projects', 'faqs', 'inquiries']) {
-    const [rows] = await connection.query(`SELECT * FROM ${table} ORDER BY ${table === 'admin_accounts' ? 'singleton_id' : 'id'}`);
+    const columns = table === 'admin_accounts' ? 'singleton_id,email,password_hash,updated_at' : '*';
+    const [rows] = await connection.query(`SELECT ${columns} FROM ${table} ORDER BY ${table === 'admin_accounts' ? 'singleton_id' : 'id'}`);
     snapshot[table] = { count: rows.length, digest: createHash('sha256').update(JSON.stringify(rows)).digest('hex') };
   }
   return snapshot;

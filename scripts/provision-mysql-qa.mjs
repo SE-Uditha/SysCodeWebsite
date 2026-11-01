@@ -39,7 +39,7 @@ async function main() {
         if (markers[0]?.meta_value !== 'qa') throw new Error('Test database marker is missing. No cleanup performed.');
         await connection.query(`DROP DATABASE \`${configuration.MYSQL_DATABASE}\``);
       }
-      await connection.query('DROP USER IF EXISTS ?@?', [configuration.MYSQL_USER, host]);
+      await connection.query(`DROP USER IF EXISTS ${mysql.escapeId(configuration.MYSQL_USER)}@${mysql.escapeId(host, true)}`);
       await unlink(filename);
       process.stdout.write('Temporary MySQL test database, account, and private configuration removed.\n');
     } else {
@@ -48,8 +48,9 @@ async function main() {
       const file = await open(filename, 'wx', 0o600);
       try { restrictPrivatePath(filename); await file.writeFile(JSON.stringify(configuration)); await file.sync(); } finally { await file.close(); }
       await connection.query(`CREATE DATABASE \`${configuration.MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-      await connection.query('CREATE USER ?@? IDENTIFIED BY ?', [configuration.MYSQL_USER, host, configuration.MYSQL_PASSWORD]);
-      await connection.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON \`${configuration.MYSQL_DATABASE}\`.* TO ?@?`, [configuration.MYSQL_USER, host]);
+      const qaIdentity = `${mysql.escapeId(configuration.MYSQL_USER)}@${mysql.escapeId(host, true)}`;
+      await connection.query(`CREATE USER ${qaIdentity} IDENTIFIED BY ?`, [configuration.MYSQL_PASSWORD]);
+      await connection.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON \`${configuration.MYSQL_DATABASE}\`.* TO ${qaIdentity}`);
       await connection.query(`USE \`${configuration.MYSQL_DATABASE}\``);
       await setupSchema(connection);
       await connection.execute("INSERT INTO app_metadata (meta_key,meta_value) VALUES ('purpose','qa')");

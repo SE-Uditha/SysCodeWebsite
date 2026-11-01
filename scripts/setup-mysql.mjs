@@ -57,7 +57,7 @@ async function createApplicationDatabase(admin, database, user, password, host, 
     for (const { TABLE_NAME } of objects) {
       if (TABLE_NAME === 'app_metadata') {
         const [rows] = await admin.query(`SELECT meta_key,meta_value FROM \`${database}\`.app_metadata`);
-        if (rows.length !== 2 || !rows.some((row) => row.meta_key === 'schema_version' && row.meta_value === '2') || !rows.some((row) => row.meta_key === 'initialized' && row.meta_value === '0')) throw new Error('The target database has already been initialized or contains data. Setup stopped.');
+        if (rows.length !== 2 || !rows.some((row) => row.meta_key === 'schema_version' && ['2', '3'].includes(row.meta_value)) || !rows.some((row) => row.meta_key === 'initialized' && row.meta_value === '0')) throw new Error('The target database has already been initialized or contains data. Setup stopped.');
       } else if (TABLE_NAME === 'storage_locks') {
         const [rows] = await admin.query(`SELECT lock_name FROM \`${database}\`.storage_locks`);
         const locks = new Set(['accounts', 'approvals', 'content', 'inquiries', 'sessions', 'login']);
@@ -71,8 +71,9 @@ async function createApplicationDatabase(admin, database, user, password, host, 
     await admin.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   }
   const [accounts] = await admin.execute('SELECT User FROM mysql.user WHERE User = ? AND Host = ?', [user, host]);
-  if (!accounts.length) await admin.query('CREATE USER ?@? IDENTIFIED BY ?', [user, host, password]);
-  await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON \`${database}\`.* TO ?@?`, [user, host]);
+  const appIdentity = `${mysql.escapeId(user)}@${mysql.escapeId(host, true)}`;
+  if (!accounts.length) await admin.query(`CREATE USER ${appIdentity} IDENTIFIED BY ?`, [password]);
+  await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON \`${database}\`.* TO ${appIdentity}`);
   await admin.query(`USE \`${database}\``);
   await setupSchema(admin);
 }
@@ -95,9 +96,10 @@ async function migrate(admin, bridge, environment, snapshot) {
     }
     for (const inquiry of state.inquiries) await admin.execute('INSERT INTO inquiries (id,created_at,updated_at,payload) VALUES (?,?,?,?)', [inquiry.id, inquiry.createdAt, inquiry.updatedAt, crypto.encryptInquiry(inquiry.id, inquiry)]);
     for (const attempt of state.loginAttempts.filter((item) => item.resetAt > Date.now())) await admin.execute('INSERT INTO login_attempts (attempt_key,count,reset_at) VALUES (?,?,?)', [attempt.key, attempt.count, attempt.resetAt]);
-    if (email && passwordHash) await admin.execute('INSERT INTO admin_accounts (singleton_id,email,password_hash,updated_at) VALUES (1,?,?,?)', [email, passwordHash, Date.now()]);
+    if (email && passwordHash) await admin.execute("INSERT INTO admin_accounts (singleton_id,username,email,phone,address,postal_code,password_hash,updated_at) VALUES (1,'administrator',?,'','','',?,?)", [email, passwordHash, Date.now()]);
     const fingerprint = createHash('sha256').update(JSON.stringify({ content, ids: state.inquiries.map((item) => item.id) })).digest('hex');
     await admin.execute("INSERT INTO app_metadata (meta_key,meta_value) VALUES ('json_import_fingerprint',?)", [fingerprint]);
+    await admin.execute("UPDATE app_metadata SET meta_value='3' WHERE meta_key='schema_version'");
     await admin.execute("UPDATE app_metadata SET meta_value='1' WHERE meta_key='initialized'");
     await admin.commit();
   } catch (error) { await admin.rollback(); throw error; }

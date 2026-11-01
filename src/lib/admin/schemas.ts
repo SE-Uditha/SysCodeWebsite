@@ -57,7 +57,7 @@ export function defaultPrivateState(): PrivateState {
 }
 
 const packageSchema = z.object({
-  id: z.enum(['basic', 'business', 'premium']),
+  id: z.string().trim().min(1).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   name: z.string().trim().min(1).max(100),
   startPrice: z.number().int().min(0).max(1000000000),
   currency: z.literal('LKR'),
@@ -90,11 +90,11 @@ const projectSchema = z.object({
 }).strict();
 
 export const contentSchemas = {
-  packages: z.array(packageSchema).length(3).superRefine((items, context) => {
-    if (new Set(items.map((item) => item.id)).size !== 3) {
-      context.addIssue({ code: 'custom', message: 'Keep one basic, business, and premium package.' });
+  packages: z.array(packageSchema).min(1).max(12).superRefine((items, context) => {
+    if (new Set(items.map((item) => item.id)).size !== items.length) {
+      context.addIssue({ code: 'custom', message: 'Each package must have a distinct ID.' });
     }
-    if (new Set(items.map((item) => item.name.toLowerCase())).size !== 3) {
+    if (new Set(items.map((item) => item.name.toLowerCase())).size !== items.length) {
       context.addIssue({ code: 'custom', message: 'Each package must have a distinct name.' });
     }
     if (items.filter((item) => item.popular).length > 1) {

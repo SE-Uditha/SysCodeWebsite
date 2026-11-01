@@ -26,13 +26,15 @@ Enquiries are re-encrypted for their individual database rows using the **same `
 
 Setup refuses to overwrite an existing target database or an already configured website connection. If provisioning fails, inspect the safe error and database state before retrying; do not drop a database containing data. Use a fresh database name for a new migration attempt when needed.
 
-After setup, restart the website and open **http://localhost:3000/admin/login**. Your imported website login stays the same. For a first administrator or a password reset:
+After setup, restart the website and open **http://localhost:3000/admin/login**. Your imported website login stays the same. For a first administrator or a password reset, use:
 
 ```powershell
-node scripts/setup-admin.mjs --email you@example.com
+node scripts/setup-admin.mjs --username admin --email you@example.com --phone "+94 700 000 000" --address "Your private address" --postal-code 00000
 ```
 
-Enter and confirm a password of at least 16 characters. The terminal hides the input. Resetting the login updates the administrator account and revokes previous admin sessions while preserving staff sessions, the session secret, and the data encryption key. The MySQL administrator password and the website login password are separate credentials. Staff accounts are created and managed through **Staff** in the dashboard; see [staff accounts and approvals](staff-approvals.md).
+Enter and confirm a password of at least 8 characters. The terminal hides the input. The administrator can sign in with the username or email address. Resetting the login updates the administrator account and revokes previous admin sessions while preserving staff sessions, the session secret, and the data encryption key. The MySQL administrator password and the website login password are separate credentials. Staff accounts are created and managed through **Staff** in the dashboard; see [staff accounts and approvals](staff-approvals.md).
+
+For an existing database, run `node scripts/upgrade-staff.mjs` once with the local MySQL administrator password before starting the updated website. This additive migration adds the private administrator profile fields and advances the schema version without replacing existing account or site data.
 
 ## Connection settings
 
@@ -61,7 +63,7 @@ Create a connection using **Standard TCP/IP**:
 3. Enter that account's password privately in Workbench. The generated website account's password is the local `MYSQL_PASSWORD`; do not share the environment file.
 4. Set the default schema to `syscode`, test the connection, then open it.
 
-Tables appear under **Schemas → syscode → Tables**. `admin_accounts` contains the website administrator email and scrypt password hash; `staff_accounts` contains administrator-managed staff identities and password hashes. `packages`, `projects`, and `faqs` contain published content. `inquiries` stores encrypted payloads, so messages cannot be read directly in the grid; use the authenticated dashboard. `change_requests` stores approval history, with proposed values and review notes encrypted. `admin_sessions` contains account-bound token hashes, and `login_attempts` contains throttle state. `storage_locks` and `app_metadata` support transaction and migration checks.
+Tables appear under **Schemas → syscode → Tables**. `admin_accounts` contains the administrator username, email, private phone/address/postal code, and scrypt password hash; `staff_accounts` contains administrator-managed staff identities and password hashes. `packages`, `projects`, and `faqs` contain published content. `inquiries` stores encrypted payloads, so messages cannot be read directly in the grid; use the authenticated dashboard. `change_requests` stores approval history, with proposed values and review notes encrypted. `admin_sessions` contains account-bound token hashes, and `login_attempts` contains throttle state. `storage_locks` and `app_metadata` support transaction and migration checks.
 
 Edit website content through the dashboard so validation and public cache invalidation run. Direct SQL edits can bypass both. Use Workbench's management account for schema changes; keep the website on its limited account. See the official [Workbench connection tutorial](https://dev.mysql.com/doc/workbench/en/wb-getting-started-tutorial-create-connection.html).
 

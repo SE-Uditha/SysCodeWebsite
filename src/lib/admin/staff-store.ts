@@ -69,9 +69,9 @@ export async function listStaff(actor: ServerDashboardActor): Promise<StaffAccou
 }
 
 async function ensureAvailableEmail(connection: PoolConnection, email: string, excludingId?: string) {
-  const [admin] = await connection.execute<RowDataPacket[]>('SELECT email FROM admin_accounts WHERE singleton_id=1 FOR UPDATE');
+  const [admin] = await connection.execute<RowDataPacket[]>('SELECT email,username FROM admin_accounts WHERE singleton_id=1 FOR UPDATE');
   const [staff] = await connection.execute<RowDataPacket[]>('SELECT id FROM staff_accounts WHERE email = ? FOR UPDATE', [email]);
-  if (admin.some((row) => row.email.toLowerCase() === email) || staff.some((row) => row.id !== excludingId)) throw new WorkflowError(409, 'email_in_use', 'This email already belongs to an account, including removed accounts.');
+  if (admin.some((row) => row.email.toLowerCase() === email || row.username.toLowerCase() === email) || staff.some((row) => row.id !== excludingId)) throw new WorkflowError(409, 'email_in_use', 'This email already belongs to an account, including removed accounts.');
 }
 
 export async function createStaff(actor: ServerDashboardActor, values: { name: string; email: string; passwordHash: string }): Promise<StaffAccount> {
