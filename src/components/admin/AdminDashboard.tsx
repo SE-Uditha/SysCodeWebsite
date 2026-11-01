@@ -4,6 +4,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { IdleLogout } from '@/components/admin/IdleLogout';
 import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleAlert, ClipboardCheck, Clock3, FileQuestion, FolderKanban, Inbox, LayoutDashboard, LoaderCircle, LogOut, Mail, MessageSquareText, Package, Phone, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trophy, UserRound, Users, X } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { AdminContentEditor, type ContentSection } from '@/components/admin/AdminContentEditor';
@@ -157,12 +158,12 @@ export function AdminDashboard({ initialInquiries, initialContent, actor, initia
     setPendingCount((current) => current + 1);
   }
 
-  async function logout() {
-    if (contentDirty && !window.confirm('Discard your unsaved content changes and sign out?')) return;
+  async function logout(skipConfirm = false) {
+    if (!skipConfirm && contentDirty && !window.confirm('Discard your unsaved content changes and sign out?')) return;
     setLoggingOut(true);
     try {
       const response = await fetch('/api/admin/logout', { method: 'POST' });
-      if (!response.ok) throw new Error('Unable to sign out. Please try again.');
+      if (!response.ok && response.status !== 401) throw new Error('Unable to sign out. Please try again.');
       router.replace('/admin/login');
       router.refresh();
     } catch (error) {
@@ -184,7 +185,7 @@ export function AdminDashboard({ initialInquiries, initialContent, actor, initia
 
   return (
     <div className="min-h-dvh min-w-0 bg-white text-black lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]" data-admin-dashboard>
-      <aside className="hidden min-w-0 bg-[#ff6600] text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-y-auto lg:px-5 lg:py-8">
+      <IdleLogout paused={loggingOut} onIdle={() => { void logout(true); }} />      <aside className="hidden min-w-0 bg-[#ff6600] text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-y-auto lg:px-5 lg:py-8">
         <a href="/" aria-label="SysCode public website" className="mx-2 block"><BrandLogo /></a>
         <p className="mx-2 mt-4 text-[0.625rem] font-bold tracking-[0.24em] text-white/90 uppercase">{isAdmin ? 'Admin workspace' : 'Staff workspace'}</p>
         <nav aria-label="Dashboard" className="mt-12 space-y-2">
@@ -193,13 +194,13 @@ export function AdminDashboard({ initialInquiries, initialContent, actor, initia
         <div className="mt-auto pt-12">
           <div className="rounded-2xl border border-white/25 p-4"><ShieldCheck aria-hidden="true" className="h-5 w-5" /><p className="mt-3 font-heading text-sm font-bold">Your business, in view.</p><p className="mt-1 text-xs leading-6 text-white/90">Every conversation starts with an enquiry. Keep the next step clear.</p><a href="/" className="mt-4 inline-flex min-h-9 items-center gap-2 text-xs font-bold">View website <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></a></div>
           <div className="mt-6 flex min-w-0 items-center gap-3 border-t border-white/25 pt-5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white font-heading text-sm font-bold text-orange-700">{initials(actor.name || actor.email)}</span><div className="min-w-0"><p className="text-xs font-bold">{actor.name}</p><p className="mt-0.5 truncate text-[0.625rem] text-white/90" title={actor.email}>{actor.email}</p></div></div>
-          <button type="button" onClick={logout} disabled={loggingOut} className="mt-4 flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60">{loggingOut ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <LogOut aria-hidden="true" className="h-4 w-4" />}Sign out</button>
+          <button type="button" onClick={() => logout()} disabled={loggingOut} className="mt-4 flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60">{loggingOut ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <LogOut aria-hidden="true" className="h-4 w-4" />}Sign out</button>
         </div>
       </aside>
 
       <div className="min-w-0">
         <header className="border-b border-orange-100 bg-white">
-          <div className="flex items-center justify-between gap-3 bg-[#ff6600] px-4 py-4 text-white sm:px-6 lg:hidden"><a href="/" aria-label="SysCode public website"><BrandLogo className="!w-32" /></a><button type="button" onClick={logout} disabled={loggingOut} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-white/40 px-3 text-xs font-bold text-white">{loggingOut ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <LogOut aria-hidden="true" className="h-4 w-4" />}Sign out</button></div>
+          <div className="flex items-center justify-between gap-3 bg-[#ff6600] px-4 py-4 text-white sm:px-6 lg:hidden"><a href="/" aria-label="SysCode public website"><BrandLogo className="!w-32" /></a><button type="button" onClick={() => logout()} disabled={loggingOut} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-white/40 px-3 text-xs font-bold text-white">{loggingOut ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <LogOut aria-hidden="true" className="h-4 w-4" />}Sign out</button></div>
           <div className="mx-auto flex max-w-[100rem] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-9"><p className="flex min-w-0 items-center gap-2 text-xs"><span className="hidden text-black/55 sm:inline">Workspace</span><ChevronRight aria-hidden="true" className="hidden h-3 w-3 text-orange-500 sm:block" /><span className="font-semibold">{view === 'approvals' && !isAdmin ? 'My submissions' : viewTitles[view]}</span></p><a href="/" className="inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-orange-800">View website <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></a></div>
           <nav aria-label="Dashboard" className="flex min-w-0 gap-1 overflow-x-auto px-4 sm:px-6 lg:hidden">{navigation.map(({ id, label, icon: Icon }) => <button type="button" key={id} data-admin-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => changeView(id)} className={`inline-flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 text-xs font-bold ${view === id ? 'border-orange-500 text-orange-800' : 'border-transparent text-black/65'}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</button>)}</nav>
         </header>
