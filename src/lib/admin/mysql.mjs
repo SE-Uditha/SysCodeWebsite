@@ -18,7 +18,8 @@ export function mysqlConnectionOptions(environment = process.env, { allowRoot = 
   const database = environment.MYSQL_DATABASE?.trim();
   const user = environment.MYSQL_USER?.trim();
   const password = environment.MYSQL_PASSWORD;
-  if (!database || !/^[a-zA-Z0-9_]{1,64}$/.test(database) || !user || user.length > 32 || !password || password.length > 4096 || !Number.isInteger(port) || port < 1 || port > 65535 || /[\s\u0000]/.test(host)) {
+  const allowEmptyRootPassword = allowRoot && user?.toLowerCase() === 'root';
+  if (!database || !/^[a-zA-Z0-9_]{1,64}$/.test(database) || !user || user.length > 32 || password === undefined || (!password && !allowEmptyRootPassword) || password.length > 4096 || !Number.isInteger(port) || port < 1 || port > 65535 || /[\s\u0000]/.test(host)) {
     throw new Error('MySQL connection settings are incomplete or invalid. Run database setup.');
   }
   if (!allowRoot && user.toLowerCase() === 'root') throw new Error('Use a dedicated MySQL application account, not root.');

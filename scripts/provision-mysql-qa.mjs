@@ -47,7 +47,7 @@ async function main() {
       restrictPrivatePath(path.dirname(filename), true);
       const file = await open(filename, 'wx', 0o600);
       try { restrictPrivatePath(filename); await file.writeFile(JSON.stringify(configuration)); await file.sync(); } finally { await file.close(); }
-      await connection.query(`CREATE DATABASE \`${configuration.MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`);
+      await connection.query(`CREATE DATABASE \`${configuration.MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
       await connection.query('CREATE USER ?@? IDENTIFIED BY ?', [configuration.MYSQL_USER, host, configuration.MYSQL_PASSWORD]);
       await connection.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON \`${configuration.MYSQL_DATABASE}\`.* TO ?@?`, [configuration.MYSQL_USER, host]);
       await connection.query(`USE \`${configuration.MYSQL_DATABASE}\``);

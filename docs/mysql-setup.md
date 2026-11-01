@@ -1,6 +1,6 @@
 # MySQL setup and operation
 
-The website uses **MySQL Server 8 or newer** through the `mysql2` driver. MySQL Workbench is a separate desktop client for inspecting and administering that server. The website works when Workbench is closed, provided the MySQL service is running.
+The website uses **MySQL Server 8 or newer, or MariaDB 10.4 or newer**, through the `mysql2` driver. phpMyAdmin and MySQL Workbench are separate clients for inspecting and administering the database; the website connects directly to the running database service.
 
 ## Local setup and migration
 
@@ -11,7 +11,9 @@ node scripts/setup-mysql.mjs
 node scripts/setup-mysql.mjs --check
 ```
 
-The default connection is `127.0.0.1:3306`, database `syscode`, with the MySQL administrator `root` used only for provisioning. Enter its password at the hidden terminal prompt. For another local server, use `--host`, `--port`, `--database`, and `--admin-user`. Never put a password in command arguments. `--password-stdin` is available for a private secret pipeline.
+The default connection is `127.0.0.1:3306`, database `syscode`, with the database administrator `root` used only for provisioning. Enter its password at the hidden terminal prompt. For another local server, use `--host`, `--port`, `--database`, and `--admin-user`. Never put a password in command arguments. `--password-stdin` is available for a private secret pipeline.
+
+If `.env.local` already points to the intended database and that schema exists but is empty, add `--initialize-empty`. Setup verifies the configured host, port, and database match, refuses any non-empty schema, and provisions a separate restricted website account.
 
 Setup validates existing JSON before creating the new database. It creates a generated website account, grants only schema-level `SELECT`, `INSERT`, `UPDATE`, and `DELETE`, creates the tables, and imports:
 
@@ -38,7 +40,7 @@ The application reads these server-side settings from `.env.local` during local 
 
 | Setting | Purpose |
 | --- | --- |
-| `MYSQL_HOST` | MySQL hostname; local setup uses `127.0.0.1`. |
+| `MYSQL_HOST` | MySQL/MariaDB hostname; local setup uses `127.0.0.1`. |
 | `MYSQL_PORT` | TCP port, normally `3306`. |
 | `MYSQL_DATABASE` | Schema, normally `syscode`. |
 | `MYSQL_USER` | Generated limited application account, beginning `syscode_app_`. |

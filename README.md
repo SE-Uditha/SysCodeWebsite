@@ -1,6 +1,6 @@
 # SysCode Software Solutions
 
-Responsive Next.js website with a private admin dashboard backed by **MySQL Server 8+**. Use **Node.js 22.13 or newer**. MySQL Workbench is the desktop tool for viewing and managing the database; the website connects directly to MySQL Server.
+Responsive Next.js website with a private admin dashboard backed by **MySQL Server 8+ or MariaDB 10.4+**. Use **Node.js 22.13 or newer**. phpMyAdmin and MySQL Workbench are tools for viewing and managing the database; the website connects directly to the MySQL or MariaDB server.
 
 ## Development and first setup
 
